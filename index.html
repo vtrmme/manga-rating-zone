@@ -15,9 +15,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
     <style>
-        /* ==========================================
-           RESET & BASIC STYLES
-           ========================================== */
+        /* RESET & BASIC STYLES */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -38,9 +36,48 @@
             letter-spacing: 1px;
         }
 
-        /* ==========================================
-           HEADER & CONTAINER
-           ========================================== */
+        /* TOAST NOTIFICATIONS (Reemplazo elegante de alert) */
+        #toastContainer {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .manga-toast {
+            background: #fff;
+            border: 3px solid #000;
+            box-shadow: 5px 5px 0px #000;
+            padding: 12px 20px;
+            font-family: 'Bangers', cursive;
+            font-size: 1.2rem;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideIn 0.3s ease-out;
+            max-width: 350px;
+        }
+
+        .manga-toast.error {
+            background: #e60012;
+            color: #fff;
+        }
+
+        .manga-toast.success {
+            background: #28a745;
+            color: #fff;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* HEADER & CONTAINER */
         header {
             background-color: #000;
             color: #fff;
@@ -139,9 +176,7 @@
             padding: 0 15px;
         }
 
-        /* ==========================================
-           HERO & SEARCH SECTION
-           ========================================== */
+        /* HERO & SEARCH SECTION */
         .hero {
             background: #fff;
             border: 4px solid #000;
@@ -218,9 +253,7 @@
             color: #fff;
         }
 
-        /* ==========================================
-           GRID DE ANIME / MANGA
-           ========================================== */
+        /* GRID DE ANIME / MANGA */
         .section-title {
             font-size: 2rem;
             border-bottom: 4px solid #000;
@@ -325,9 +358,7 @@
             margin-bottom: 10px;
         }
 
-        /* ==========================================
-           MODAL / FICHA DETALLADA
-           ========================================== */
+        /* MODAL / FICHA DETALLADA */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -455,9 +486,7 @@
             color: #e60012;
         }
 
-        /* ==========================================
-           FOOTER & EMAIL FORM
-           ========================================== */
+        /* FOOTER & EMAIL FORM */
         footer {
             background: #000;
             color: #fff;
@@ -514,6 +543,9 @@
     </style>
 </head>
 <body>
+
+    <!-- CONTENEDOR DE NOTIFICACIONES TOAST -->
+    <div id="toastContainer"></div>
 
     <!-- HEADER -->
     <header>
@@ -634,16 +666,16 @@
         </div>
     </footer>
 
-    <!-- LÓGICA JAVASCRIPT CONECTADA CON TUS CLAVES REALES DE FIREBASE -->
+    <!-- LOGICA JAVASCRIPT Y CONFIGURACIÓN FIREBASE -->
     <script>
         const firebaseConfig = {
-            apiKey: "AIzaSyC0SBHiP9fB0SzRhoyT7BaMt-RrdSLc",
+            apiKey: "AIzaSyC5UnHiP9fmBI9z8ENoyT78eNt-RrdLElc",
             authDomain: "manga-rating-zone.firebaseapp.com",
             projectId: "manga-rating-zone",
             storageBucket: "manga-rating-zone.firebasestorage.app",
-            messagingSenderId: "89355R016009",
-            appId: "1:89355R016009:web:5d67bfa24c1fb68746b358",
-            measurementId: "G-G2VM6EFWR1"
+            messagingSenderId: "893559216009",
+            appId: "1:893559216009:web:1d67bfa20c1fb58746b358",
+            measurementId: "G-DZVMEEFWR1"
         };
 
         // Inicialización de Firebase
@@ -658,6 +690,40 @@
         let currentRating = 0;
         let selectedItemId = null;
         let currentAuthMode = 'login';
+
+        // SISTEMA DE NOTIFICACIONES PERSONALIZADO (TOASTS)
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `manga-toast ${type}`;
+            toast.innerHTML = `<span>${type === 'error' ? '✖' : '✔'}</span> ${message}`;
+            
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        // TRADUCTOR DE ERRORES FIREBASE A ESPAÑOL AMIGABLE
+        function getFriendlyErrorMessage(code) {
+            switch (code) {
+                case 'auth/invalid-email':
+                    return 'El formato del correo no es válido.';
+                case 'auth/user-not-found':
+                case 'auth/wrong-password':
+                case 'auth/invalid-credential':
+                    return 'Correo o contraseña incorrectos.';
+                case 'auth/email-already-in-use':
+                    return 'Este correo ya está registrado.';
+                case 'auth/weak-password':
+                    return 'La contraseña debe tener al menos 6 caracteres.';
+                default:
+                    return 'Ha ocurrido un error. Inténtalo de nuevo.';
+            }
+        }
 
         // DETECTAR ESTADO DE SESIÓN REAL EN FIREBASE
         document.addEventListener("DOMContentLoaded", () => {
@@ -697,22 +763,23 @@
             try {
                 if (currentAuthMode === 'login') {
                     await auth.signInWithEmailAndPassword(email, password);
-                    alert("¡Sesión iniciada con éxito!");
+                    showToast("¡Bienvenido de nuevo!", "success");
                 } else {
                     await auth.createUserWithEmailAndPassword(email, password);
-                    alert("¡Cuenta creada e iniciada con éxito!");
+                    showToast("¡Cuenta creada con éxito!", "success");
                 }
                 closeModal('authModal');
                 document.getElementById('authEmail').value = '';
                 document.getElementById('authPassword').value = '';
             } catch (error) {
-                alert("Error de autenticación: " + error.message);
+                const cleanMsg = getFriendlyErrorMessage(error.code);
+                showToast(cleanMsg, "error");
             }
         }
 
         function logout() {
             auth.signOut().then(() => {
-                alert("Sesión cerrada.");
+                showToast("Has cerrado sesión.", "success");
             });
         }
 
@@ -736,7 +803,8 @@
                 const data = await res.json();
                 renderGrid(data.data);
             } catch (err) {
-                grid.innerHTML = '<p>Error al conectar con la API de Jikan.</p>';
+                grid.innerHTML = '<p>Error al conectar con el servidor.</p>';
+                showToast("No se pudo cargar la lista.", "error");
             }
         }
 
@@ -756,6 +824,7 @@
                 renderGrid(data.data);
             } catch (err) {
                 grid.innerHTML = '<p>Error en la búsqueda.</p>';
+                showToast("Error al realizar la búsqueda.", "error");
             }
         }
 
@@ -814,7 +883,6 @@
             setRating(0);
             document.getElementById('commentInput').value = '';
 
-            // Cargar reseñas en tiempo real desde Cloud Firestore
             loadReviewsFromFirestore(item.mal_id);
 
             document.getElementById('detailModal').classList.add('active');
@@ -824,20 +892,19 @@
         async function submitRating() {
             const user = auth.currentUser;
             if (!user) {
-                alert("Debes iniciar sesión para publicar una valoración.");
+                showToast("Inicia sesión para poder publicar.", "error");
                 openAuthModal('login');
                 return;
             }
 
             if (currentRating === 0) {
-                alert("Por favor selecciona al menos 1 estrella.");
+                showToast("Selecciona al menos 1 estrella.", "error");
                 return;
             }
 
             const comment = document.getElementById('commentInput').value.trim();
 
             try {
-                // Guardar documento en la colección 'ratings'
                 await db.collection('ratings').add({
                     itemId: selectedItemId,
                     userEmail: user.email,
@@ -846,12 +913,12 @@
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
-                alert("¡Valoración guardada con éxito en Firestore!");
+                showToast("¡Reseña publicada con éxito!", "success");
                 document.getElementById('commentInput').value = '';
                 setRating(0);
                 loadReviewsFromFirestore(selectedItemId);
             } catch (error) {
-                alert("Error al guardar en la base de datos: " + error.message);
+                showToast("Error al guardar la reseña.", "error");
             }
         }
 
