@@ -36,7 +36,7 @@
             letter-spacing: 1px;
         }
 
-        /* TOAST NOTIFICATIONS (Reemplazo elegante de alert) */
+        /* TOAST NOTIFICATIONS */
         #toastContainer {
             position: fixed;
             bottom: 20px;
@@ -118,7 +118,7 @@
 
         .nav-links {
             display: flex;
-            gap: 15px;
+            gap: 10px;
             align-items: center;
         }
 
@@ -486,6 +486,27 @@
             color: #e60012;
         }
 
+        /* ESTILOS DE PERFIL */
+        .profile-field {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 12px;
+        }
+
+        .profile-field label {
+            font-family: 'Bangers', cursive;
+            font-size: 1.1rem;
+            letter-spacing: 0.5px;
+        }
+
+        .profile-field input, .profile-field textarea {
+            padding: 10px;
+            border: 2px solid #000;
+            font-family: inherit;
+            font-size: 1rem;
+        }
+
         /* FOOTER & EMAIL FORM */
         footer {
             background: #000;
@@ -641,6 +662,33 @@
         </div>
     </div>
 
+    <!-- MODAL DE PERFIL DE USUARIO -->
+    <div class="modal-overlay" id="profileModal">
+        <div class="modal-content" style="max-width: 500px; grid-template-columns: 1fr;">
+            <button class="close-modal" onclick="closeModal('profileModal')">&times;</button>
+            <h2 style="text-align: center;">MI PERFIL OTAKU</h2>
+            <form id="profileForm" onsubmit="saveUserProfile(event)" style="margin-top: 15px;">
+                <div class="profile-field">
+                    <label for="profName">Nombre / Nickname:</label>
+                    <input type="text" id="profName" placeholder="Tu apodo otaku" required>
+                </div>
+                <div class="profile-field">
+                    <label for="profBio">Descripción / Bio:</label>
+                    <textarea id="profBio" rows="3" placeholder="Cuéntanos un poco sobre ti..."></textarea>
+                </div>
+                <div class="profile-field">
+                    <label for="profFavAnime">Anime Favorito:</label>
+                    <input type="text" id="profFavAnime" placeholder="Ej: Dragon Ball Z">
+                </div>
+                <div class="profile-field">
+                    <label for="profFavManga">Manga Favorito:</label>
+                    <input type="text" id="profFavManga" placeholder="Ej: Berserk">
+                </div>
+                <button type="submit" class="btn-manga btn-red" style="width: 100%; margin-top: 10px;">Guardar Perfil</button>
+            </form>
+        </div>
+    </div>
+
     <!-- FOOTER -->
     <footer>
         <div class="footer-content">
@@ -739,11 +787,22 @@
         });
 
         // ACTUALIZAR BARRA DE NAVEGACIÓN
-        function updateNav(user) {
+        async function updateNav(user) {
             const navLinks = document.getElementById('navLinks');
             if (user) {
+                let displayName = user.email;
+                try {
+                    const doc = await db.collection('users').doc(user.uid).get();
+                    if (doc.exists && doc.data().displayName) {
+                        displayName = doc.data().displayName;
+                    }
+                } catch (e) {
+                    console.error("Error al cargar nombre de usuario", e);
+                }
+
                 navLinks.innerHTML = `
-                    <span class="user-email-display">${user.email}</span>
+                    <span class="user-email-display" title="${user.email}">${displayName}</span>
+                    <button class="btn-manga" onclick="openProfileModal()">Perfil</button>
                     <button class="btn-manga btn-red" onclick="logout()">Salir</button>
                 `;
             } else {
@@ -788,7 +847,13 @@
             currentType = type;
             document.getElementById('btnTypeAnime').classList.toggle('active', type === 'anime');
             document.getElementById('btnTypeManga').classList.toggle('active', type === 'manga');
-            loadTopAnime();
+            
+            const searchVal = document.getElementById('searchInput').value.trim();
+            if (searchVal !== "") {
+                triggerSearch();
+            } else {
+                loadTopAnime();
+            }
         }
 
         // OBTENER TOP DE JIKAN API
@@ -808,10 +873,14 @@
             }
         }
 
-        // BUSCADOR
+        // BUSCADOR MEJORADO
         async function triggerSearch() {
             const query = document.getElementById('searchInput').value.trim();
-            if (!query) return;
+            
+            if (!query) {
+                loadTopAnime();
+                return;
+            }
 
             const grid = document.getElementById('mangaGrid');
             const title = document.getElementById('gridTitle');
@@ -819,12 +888,17 @@
             grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.5rem;">Buscando...</p>';
 
             try {
-                const res = await fetch(`https://api.jikan.moe/v4/${currentType}?q=${encodeURIComponent(query)}&limit=12`);
+                const res = await fetch(`https://api.jikan.moe/v4/${currentType}?q=${encodeURIComponent(query)}&sfw=true&limit=12`);
                 const data = await res.json();
+                
+                if (!res.ok) {
+                    throw new Error("Error en la respuesta de la API");
+                }
+                
                 renderGrid(data.data);
             } catch (err) {
-                grid.innerHTML = '<p>Error en la búsqueda.</p>';
-                showToast("Error al realizar la búsqueda.", "error");
+                grid.innerHTML = '<p>Error al realizar la búsqueda. Por favor reintenta.</p>';
+                showToast("Error en la búsqueda.", "error");
             }
         }
 
@@ -888,6 +962,60 @@
             document.getElementById('detailModal').classList.add('active');
         }
 
+        // GESTIÓN DE PERFIL DE USUARIO
+        async function openProfileModal() {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            try {
+                const doc = await db.collection('users').doc(user.uid).get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    document.getElementById('profName').value = data.displayName || '';
+                    document.getElementById('profBio').value = data.bio || '';
+                    document.getElementById('profFavAnime').value = data.favAnime || '';
+                    document.getElementById('profFavManga').value = data.favManga || '';
+                } else {
+                    document.getElementById('profName').value = '';
+                    document.getElementById('profBio').value = '';
+                    document.getElementById('profFavAnime').value = '';
+                    document.getElementById('profFavManga').value = '';
+                }
+            } catch (err) {
+                showToast("Error al obtener datos de perfil.", "error");
+            }
+
+            document.getElementById('profileModal').classList.add('active');
+        }
+
+        async function saveUserProfile(e) {
+            e.preventDefault();
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const displayName = document.getElementById('profName').value.trim();
+            const bio = document.getElementById('profBio').value.trim();
+            const favAnime = document.getElementById('profFavAnime').value.trim();
+            const favManga = document.getElementById('profFavManga').value.trim();
+
+            try {
+                await db.collection('users').doc(user.uid).set({
+                    displayName: displayName,
+                    bio: bio,
+                    favAnime: favAnime,
+                    favManga: favManga,
+                    email: user.email,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+
+                showToast("¡Perfil actualizado con éxito!", "success");
+                closeModal('profileModal');
+                updateNav(user);
+            } catch (err) {
+                showToast("Error al guardar el perfil.", "error");
+            }
+        }
+
         // GUARDAR VALORACIÓN EN FIRESTORE
         async function submitRating() {
             const user = auth.currentUser;
@@ -905,8 +1033,16 @@
             const comment = document.getElementById('commentInput').value.trim();
 
             try {
+                let authorName = user.email;
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (userDoc.exists && userDoc.data().displayName) {
+                    authorName = userDoc.data().displayName;
+                }
+
                 await db.collection('ratings').add({
                     itemId: selectedItemId,
+                    userUid: user.uid,
+                    userName: authorName,
                     userEmail: user.email,
                     stars: currentRating,
                     comment: comment,
@@ -940,9 +1076,10 @@
                       const data = doc.data();
                       const item = document.createElement('div');
                       item.className = 'review-item';
+                      const displayName = data.userName || data.userEmail;
                       item.innerHTML = `
                           <div class="review-header">
-                              <span>${data.userEmail}</span>
+                              <span>${displayName}</span>
                               <span>★ ${data.stars}/5</span>
                           </div>
                           <p style="font-size:0.9rem; margin-top:4px;">${data.comment || 'Sin comentario textual.'}</p>
