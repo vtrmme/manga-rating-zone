@@ -873,7 +873,7 @@
             }
         }
 
-        // BUSCADOR MEJORADO
+        // BUSCADOR ROBUSTO CON CONTROL DE TIEMPO Y MANEJO DE ERRORES DE API
         async function triggerSearch() {
             const query = document.getElementById('searchInput').value.trim();
             
@@ -887,18 +887,42 @@
             title.innerText = `RESULTADOS PARA: "${query.toUpperCase()}"`;
             grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.5rem;">Buscando...</p>';
 
+            const searchUrl = `https://api.jikan.moe/v4/${currentType}?q=${encodeURIComponent(query)}&limit=12&order_by=popularity`;
+
             try {
-                const res = await fetch(`https://api.jikan.moe/v4/${currentType}?q=${encodeURIComponent(query)}&sfw=true&limit=12`);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+                const res = await fetch(searchUrl, { signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                if (res.status === 429) {
+                    showToast("Demasiadas búsquedas seguidas. Espera unos segundos.", "error");
+                    grid.innerHTML = '<p style="grid-column: 1/-1;">Límite de la API alcanzado. Espera un momento y vuelve a intentar.</p>';
+                    return;
+                }
+
+                if (!res.ok) {
+                    throw new Error(`Error HTTP: ${res.status}`);
+                }
+
                 const data = await res.json();
                 
-                if (!res.ok) {
-                    throw new Error("Error en la respuesta de la API");
+                if (!data.data || data.data.length === 0) {
+                    grid.innerHTML = '<p style="grid-column: 1/-1;">No se encontraron resultados para tu búsqueda.</p>';
+                    return;
                 }
-                
+
                 renderGrid(data.data);
             } catch (err) {
-                grid.innerHTML = '<p>Error al realizar la búsqueda. Por favor reintenta.</p>';
-                showToast("Error en la búsqueda.", "error");
+                if (err.name === 'AbortError') {
+                    showToast("La búsqueda tardó demasiado tiempo.", "error");
+                    grid.innerHTML = '<p style="grid-column: 1/-1;">La conexión ha tardado demasiado.</p>';
+                } else {
+                    console.error("Error en la búsqueda:", err);
+                    grid.innerHTML = '<p style="grid-column: 1/-1;">Error al realizar la búsqueda. Comprueba tu conexión.</p>';
+                    showToast("Error en la búsqueda.", "error");
+                }
             }
         }
 
