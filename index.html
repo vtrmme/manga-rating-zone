@@ -738,6 +738,7 @@
         let currentRating = 0;
         let selectedItemId = null;
         let currentAuthMode = 'login';
+        let searchTimeout = null;
 
         // SISTEMA DE NOTIFICACIONES PERSONALIZADO (TOASTS)
         function showToast(message, type = 'success') {
@@ -873,10 +874,13 @@
             }
         }
 
-        // BUSCADOR ROBUSTO CON CONTROL DE TIEMPO Y MANEJO DE ERRORES DE API
+        // BUSCADOR CON DEBOUNCE Y PROXY CRAWLER DE RESPALDO ANTI-BLOQUEO
         async function triggerSearch() {
-            const query = document.getElementById('searchInput').value.trim();
+            const queryInput = document.getElementById('searchInput');
+            const query = queryInput.value.trim();
             
+            if (searchTimeout) clearTimeout(searchTimeout);
+
             if (!query) {
                 loadTopAnime();
                 return;
@@ -887,43 +891,42 @@
             title.innerText = `RESULTADOS PARA: "${query.toUpperCase()}"`;
             grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.5rem;">Buscando...</p>';
 
-            const searchUrl = `https://api.jikan.moe/v4/${currentType}?q=${encodeURIComponent(query)}&limit=12&order_by=popularity`;
+            searchTimeout = setTimeout(async () => {
+                const primaryUrl = `https://api.jikan.moe/v4/${currentType}?q=${encodeURIComponent(query)}&limit=12&sfw=true`;
 
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 8000);
+                try {
+                    let res = await fetch(primaryUrl);
+                    
+                    if (res.status === 429 || !res.ok) {
+                        console.warn("API saturada. Intentando recuperar mediante Proxy...");
+                        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(primaryUrl)}`;
+                        const proxyRes = await fetch(proxyUrl);
+                        const proxyData = await proxyRes.json();
+                        const parsedData = JSON.parse(proxyData.contents);
 
-                const res = await fetch(searchUrl, { signal: controller.signal });
-                clearTimeout(timeoutId);
+                        if (parsedData && parsedData.data) {
+                            renderGrid(parsedData.data);
+                            return;
+                        } else {
+                            throw new Error("Respuesta inválida del Proxy");
+                        }
+                    }
 
-                if (res.status === 429) {
-                    showToast("Demasiadas búsquedas seguidas. Espera unos segundos.", "error");
-                    grid.innerHTML = '<p style="grid-column: 1/-1;">Límite de la API alcanzado. Espera un momento y vuelve a intentar.</p>';
-                    return;
+                    const data = await res.json();
+                    
+                    if (!data.data || data.data.length === 0) {
+                        grid.innerHTML = '<p style="grid-column: 1/-1;">No se encontraron resultados para tu búsqueda.</p>';
+                        return;
+                    }
+
+                    renderGrid(data.data);
+
+                } catch (err) {
+                    console.error("Fallo general en la búsqueda:", err);
+                    grid.innerHTML = '<p style="grid-column: 1/-1;">No se pudo completar la búsqueda. Espera unos segundos e inténtalo de nuevo.</p>';
+                    showToast("Error de conexión con la API.", "error");
                 }
-
-                if (!res.ok) {
-                    throw new Error(`Error HTTP: ${res.status}`);
-                }
-
-                const data = await res.json();
-                
-                if (!data.data || data.data.length === 0) {
-                    grid.innerHTML = '<p style="grid-column: 1/-1;">No se encontraron resultados para tu búsqueda.</p>';
-                    return;
-                }
-
-                renderGrid(data.data);
-            } catch (err) {
-                if (err.name === 'AbortError') {
-                    showToast("La búsqueda tardó demasiado tiempo.", "error");
-                    grid.innerHTML = '<p style="grid-column: 1/-1;">La conexión ha tardado demasiado.</p>';
-                } else {
-                    console.error("Error en la búsqueda:", err);
-                    grid.innerHTML = '<p style="grid-column: 1/-1;">Error al realizar la búsqueda. Comprueba tu conexión.</p>';
-                    showToast("Error en la búsqueda.", "error");
-                }
-            }
+            }, 400);
         }
 
         // RENDERIZAR PARRILLA
