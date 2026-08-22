@@ -394,6 +394,8 @@ async function submitRating() {
     }
 
     const comment = document.getElementById('commentInput').value.trim();
+    const itemTitle = document.getElementById('modalTitle').innerText;
+    const itemCover = document.getElementById('modalImg').src;
 
     try {
         let authorName = user.email;
@@ -404,6 +406,9 @@ async function submitRating() {
 
         await db.collection('ratings').add({
             itemId: String(selectedItemId),
+            itemType: currentType,
+            itemTitle: itemTitle,
+            itemCover: itemCover,
             userUid: user.uid,
             userName: authorName,
             userEmail: user.email,
@@ -580,24 +585,76 @@ async function viewFriendProfile(friendUid) {
         if (ratingsSnapshot.empty) {
             reviewsContainer.innerHTML = '<p style="font-size:0.85rem;">Este usuario no ha hecho reseñas aún.</p>';
         } else {
-            ratingsSnapshot.forEach(doc => {
+            for (const doc of ratingsSnapshot.docs) {
                 const r = doc.data();
+                let title = r.itemTitle;
+                let cover = r.itemCover;
+                let type = r.itemType || 'anime';
+
+                // Si la reseña es antigua y no guardó el título o la portada, los pedimos a Kitsu
+                if (!title || !cover) {
+                    try {
+                        const res = await fetch(`https://kitsu.io/api/edge/anime/${r.itemId}`);
+                        const json = await res.json();
+                        if (json.data) {
+                            const formatted = formatKitsuItem(json.data);
+                            title = formatted.title;
+                            cover = formatted.images.jpg.large_image_url;
+                        } else {
+                            const resManga = await fetch(`https://kitsu.io/api/edge/manga/${r.itemId}`);
+                            const jsonManga = await resManga.json();
+                            if (jsonManga.data) {
+                                const formatted = formatKitsuItem(jsonManga.data);
+                                title = formatted.title;
+                                cover = formatted.images.jpg.large_image_url;
+                                type = 'manga';
+                            }
+                        }
+                    } catch (e) {
+                        title = "Obra #" + r.itemId;
+                        cover = "https://via.placeholder.com/60x90?text=No+Cover";
+                    }
+                }
+
                 const div = document.createElement('div');
                 div.className = 'review-item';
+                div.style.cssText = "display: flex; gap: 10px; align-items: center; margin-bottom: 10px;";
+                
                 div.innerHTML = `
-                    <div class="review-header">
-                        <span>★ ${r.stars}/5</span>
+                    <img src="${cover}" alt="${title}" style="width: 50px; height: 70px; object-fit: cover; border: 1px solid #000; border-radius: 4px;">
+                    <div style="flex: 1;">
+                        <strong style="display: block; font-size: 0.9rem;">${title || 'Obra desconocida'}</strong>
+                        <span style="font-size: 0.85rem; color: #ffb400;">★ ${r.stars}/5</span>
+                        <p style="font-size:0.8rem; margin-top:2px; color: #333;">${r.comment || 'Sin reseña escrita.'}</p>
                     </div>
-                    <p style="font-size:0.85rem; margin-top:4px;">${r.comment || 'Sin reseña escrita.'}</p>
+                    <button class="btn-manga" style="font-size: 0.75rem; padding: 4px 8px;" onclick="goToItem('${r.itemId}', '${type}')">Ver</button>
                 `;
                 reviewsContainer.appendChild(div);
-            });
+            }
         }
 
         document.getElementById('friendProfileModal').classList.add('active');
     } catch (err) {
         console.error("Error al abrir perfil del amigo:", err);
         showToast("Error al abrir perfil del amigo.", "error");
+    }
+}
+
+async function goToItem(itemId, itemType) {
+    closeModal('friendProfileModal');
+    closeModal('friendsModal');
+    
+    try {
+        const res = await fetch(`https://kitsu.io/api/edge/${itemType}/${itemId}`);
+        const json = await res.json();
+        if (json.data) {
+            const item = formatKitsuItem(json.data);
+            openDetailModal(item);
+        } else {
+            showToast("No se pudo cargar la información de la obra.", "error");
+        }
+    } catch (e) {
+        showToast("Error al conectar con la API.", "error");
     }
 }
 
