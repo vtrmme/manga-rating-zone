@@ -75,11 +75,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 });
 
-// ACTUALIZAR BARRA DE NAVEGACIÓN (BUSCANDO EL NOMBRE DE USUARIO EN FIRESTORE)
+// ACTUALIZAR BARRA DE NAVEGACIÓN
 async function updateNav(user) {
     const navLinks = document.getElementById('navLinks');
     if (user) {
-        let displayName = user.email.split('@')[0]; // Valor por defecto provisional
+        let displayName = user.email.split('@')[0];
         try {
             const userDoc = await db.collection('users').doc(user.uid).get();
             if (userDoc.exists && userDoc.data().username) {
@@ -138,7 +138,7 @@ function logout() {
     });
 }
 
-// GESTIÓN DE PERFILES (MODIFICAR NOMBRE Y BIO)
+// GESTIÓN DE PERFILES
 function openProfileModal() {
     const user = auth.currentUser;
     if (!user) return;
@@ -180,7 +180,7 @@ async function saveProfile() {
     }
 }
 
-// SISTEMA DE AMIGOS (MODAL)
+// SISTEMA DE AMIGOS
 function openFriendsModal() {
     const user = auth.currentUser;
     if (!user) return;
@@ -252,7 +252,6 @@ function loadFriends(uid) {
     });
 }
 
-// ELIMINAR AMIGO
 async function removeFriend(friendUid) {
     const user = auth.currentUser;
     if (!user) return;
@@ -267,7 +266,6 @@ async function removeFriend(friendUid) {
     }
 }
 
-// VER VALORACIONES Y FAVORITOS DE UN AMIGO POR SU NOMBRE DE USUARIO
 async function viewFriendActivity(friendUid, friendUsername) {
     const container = document.getElementById('friendActivityList');
     container.innerHTML = `<p style="font-size:0.85rem;">Cargando datos de ${friendUsername}...</p>`;
@@ -350,7 +348,7 @@ async function loadTopAnime() {
     }
 }
 
-// BUSCADOR MEJORADO (CON SFW Y MANEJO DE ERRORES)
+// BUSCADOR CORREGIDO Y ASEGURADO
 async function triggerSearch() {
     const query = document.getElementById('searchInput').value.trim();
     if (!query) {
@@ -363,12 +361,15 @@ async function triggerSearch() {
     title.innerText = `RESULTADOS PARA: "${query.toUpperCase()}"`;
     grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.5rem;">Buscando en la base de datos...</p>';
 
+    // Nos aseguramos de que currentType sea estrictamente 'anime' o 'manga'
+    const searchType = (currentType === 'manga') ? 'manga' : 'anime';
+
     try {
-        const url = `https://api.jikan.moe/v4/${currentType}?q=${encodeURIComponent(query)}&limit=12&sfw=true`;
+        const url = `https://api.jikan.moe/v4/${searchType}?q=${encodeURIComponent(query)}&limit=12&sfw=true`;
         const res = await fetch(url);
         
         if (!res.ok) {
-            throw new Error('Límite de peticiones excedido o error en la API');
+            throw new Error('Error en la respuesta de la API');
         }
 
         const data = await res.json();
@@ -376,8 +377,8 @@ async function triggerSearch() {
         
     } catch (err) {
         console.error(err);
-        grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.2rem; color: #e60012;">¡Vaya! La API está saturada o tardó mucho en responder. Espera 2 segundos y vuelve a intentar.</p>';
-        showToast("Error en la búsqueda. Inténtalo de nuevo.", "error");
+        grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.2rem; color: #e60012;">¡Vaya! Ocurrió un error al buscar. Comprueba tu conexión e inténtalo de nuevo.</p>';
+        showToast("Error en la búsqueda.", "error");
     }
 }
 
