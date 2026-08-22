@@ -361,10 +361,11 @@ async function triggerSearch() {
     title.innerText = `RESULTADOS PARA: "${query.toUpperCase()}"`;
     grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.5rem;">Buscando en la base de datos...</p>';
 
-    const searchType = (currentType === 'manga') ? 'manga' : 'anime';
+    // Determinamos de forma limpia el tipo (anime o manga)
+    const endpointType = (currentType === 'manga') ? 'manga' : 'anime';
 
     try {
-        const url = `https://api.jikan.moe/v4/${searchType}?q=${encodeURIComponent(query)}&limit=12`;
+        const url = `https://api.jikan.moe/v4/${endpointType}?q=${encodeURIComponent(query)}&limit=12`;
         const res = await fetch(url);
         
         if (res.status === 429) {
