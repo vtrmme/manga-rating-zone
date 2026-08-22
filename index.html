@@ -4,203 +4,123 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manga Rating Zone</title>
-    <!-- Ruta relativa estricta para GitHub Pages -->
-    <link rel="stylesheet" href="./styles.css">
-    <!-- Firebase SDKs (v8) -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <!-- Toast Notifications -->
-    <div id="toastContainer"></div>
-
-    <!-- Header / Navbar -->
+    <!-- BARRA DE NAVEGACIÓN -->
     <header class="manga-header">
-        <div class="logo-container">
-            <h1 class="logo-text">MANGA RATING ZONE</h1>
-        </div>
-        <nav id="navLinks" class="nav-links">
-            <button class="btn-manga" onclick="openAuthModal('login')">Entrar</button>
-            <button class="btn-manga" onclick="openAuthModal('register')">Registro</button>
+        <div class="logo-text">MANGA ZONE</div>
+        <nav class="nav-links" id="navLinks">
+            <!-- El JS inyecta los botones -->
         </nav>
     </header>
 
-    <!-- Main Container -->
+    <!-- LAYOUT PRINCIPAL -->
     <div class="main-layout">
-        
-        <!-- Sidebar Izquierda: Contenido Reciente -->
-        <aside class="sidebar sidebar-left">
+
+        <!-- COLUMNA IZQUIERDA -->
+        <aside class="sidebar">
             <div class="side-box">
-                <h3 class="side-title">ÚLTIMO ANIME</h3>
-                <div id="latestAnimeBox" class="side-content">
-                    <p class="manga-font">Cargando...</p>
-                </div>
+                <h3 class="side-title">Último Anime</h3>
+                <div id="latestAnime"></div>
             </div>
             <div class="side-box">
-                <h3 class="side-title">ÚLTIMO MANGA</h3>
-                <div id="latestMangaBox" class="side-content">
-                    <p class="manga-font">Cargando...</p>
-                </div>
+                <h3 class="side-title">Último Manga</h3>
+                <div id="latestManga"></div>
             </div>
         </aside>
 
-        <!-- Contenido Central -->
-        <main class="content-center">
-            
-            <!-- Barra de Filtros y Búsqueda -->
-            <div class="search-section">
+        <!-- COLUMNA CENTRAL -->
+        <main class="main-content">
+            <section class="search-section">
                 <div class="type-switch">
-                    <button id="btnTypeAnime" class="btn-switch active" onclick="switchType('anime')">ANIME</button>
-                    <button id="btnTypeManga" class="btn-switch" onclick="switchType('manga')">MANGA</button>
+                    <button class="btn-switch active" id="btnManga" onclick="switchType('manga')">Manga</button>
+                    <button class="btn-switch" id="btnAnime" onclick="switchType('anime')">Anime</button>
                 </div>
                 <div class="search-bar">
-                    <input type="text" id="searchInput" placeholder="Buscar anime o manga..." autocomplete="off">
-                    <button class="btn-manga btn-search" onclick="triggerSearch()">BUSCAR</button>
+                    <input type="text" id="searchInput" placeholder="Buscar..." oninput="handleSearch()">
                 </div>
+            </section>
+
+            <h2 class="section-title" id="gridTitle">Populares</h2>
+            <div class="manga-grid" id="mangaGrid">
+                <!-- El JS carga los ítems -->
             </div>
-
-            <!-- Título de Sección -->
-            <h2 id="gridTitle" class="section-title">TOP ANIMES POPULARES</h2>
-
-            <!-- Grid Principal -->
-            <div id="mangaGrid" class="manga-grid"></div>
         </main>
 
-        <!-- Sidebar Derecha: Ranking Top 3 -->
-        <aside class="sidebar sidebar-right">
+        <!-- COLUMNA DERECHA -->
+        <aside class="sidebar">
             <div class="side-box">
-                <h3 class="side-title">TOP 3 VALORADOS</h3>
-                <div id="top3List" class="top3-container">
-                    <p class="manga-font">Cargando...</p>
-                </div>
-            </div>
-
-            <!-- Formulario de Petición al Creador -->
-            <div class="side-box request-box">
-                <h3 class="side-title">¿NO ENCUENTRAS ALGO?</h3>
-                <form onsubmit="sendCreatorEmail(event)">
-                    <input type="text" id="reqTitle" placeholder="Título de la obra" required class="manga-input">
-                    <textarea id="reqDesc" placeholder="Comentarios o detalles..." class="manga-textarea" rows="2"></textarea>
-                    <button type="submit" class="btn-manga btn-full">PEDIR AL CREADOR</button>
-                </form>
+                <h3 class="side-title">Top 3 Valorados</h3>
+                <div id="top3Container"></div>
             </div>
         </aside>
+
     </div>
 
-    <!-- MODAL: DETALLE DE OBRA -->
-    <div id="detailModal" class="manga-modal">
+    <!-- MODAL DETALLES -->
+    <div class="manga-modal" id="detailModal">
         <div class="modal-content modal-large">
             <button class="close-btn" onclick="closeModal('detailModal')">&times;</button>
             <div class="modal-body-grid">
-                <div class="modal-left">
-                    <img id="modalImg" src="" alt="Portada">
-                    <div class="modal-badge-box">
-                        <span id="modalGenres" class="badge">--</span>
-                        <span class="badge score-badge">★ <span id="modalMalScore">0.0</span></span>
-                    </div>
-                </div>
+                <div class="modal-left" id="modalLeft"></div>
                 <div class="modal-right">
-                    <h2 id="modalTitle" class="modal-title">Título</h2>
-                    <p id="modalSynopsis" class="modal-synopsis">Sinopsis...</p>
-                    
-                    <div id="trailerContainer" class="trailer-box"></div>
-
-                    <!-- Sistema de Reseñas -->
-                    <div class="rating-section">
-                        <h3>TU VALORACIÓN</h3>
-                        <div id="starRating" class="star-rating">
-                            <span class="star" onclick="setRating(1)">★</span>
-                            <span class="star" onclick="setRating(2)">★</span>
-                            <span class="star" onclick="setRating(3)">★</span>
-                            <span class="star" onclick="setRating(4)">★</span>
-                            <span class="star" onclick="setRating(5)">★</span>
-                        </div>
-                        <textarea id="commentInput" placeholder="Escribe tu reseña..." class="manga-textarea" rows="2"></textarea>
-                        <button class="btn-manga" onclick="submitRating()">PUBLICAR RESEÑA</button>
-                    </div>
-
-                    <!-- Lista de Reseñas -->
-                    <div class="reviews-container">
-                        <h3>OPINIONES DE USUARIOS</h3>
-                        <div id="reviewsList" class="reviews-list"></div>
+                    <h2 id="modalTitle"></h2>
+                    <div id="trailerContainer" style="margin: 15px 0;"></div>
+                    <div class="reviews-section">
+                        <h3>Reseñas</h3>
+                        <div id="reviewsList"></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL: AUTH -->
-    <div id="authModal" class="manga-modal">
-        <div class="modal-content modal-small">
-            <button class="close-btn" onclick="closeModal('authModal')">&times;</button>
-            <h2 id="authModalTitle" class="modal-title">INICIAR SESIÓN</h2>
-            <form onsubmit="handleAuth(event)">
-                <input type="email" id="authEmail" placeholder="Correo electrónico" required class="manga-input">
-                <input type="password" id="authPassword" placeholder="Contraseña" required class="manga-input">
-                <button type="submit" id="authSubmitBtn" class="btn-manga btn-full">ENTRAR</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL: PERFIL DE USUARIO -->
-    <div id="profileModal" class="manga-modal">
-        <div class="modal-content modal-small">
+    <!-- MODAL PERFIL -->
+    <div class="manga-modal" id="profileModal">
+        <div class="modal-content modal-medium">
             <button class="close-btn" onclick="closeModal('profileModal')">&times;</button>
-            <h2 class="modal-title">MI PERFIL</h2>
-            <form onsubmit="saveUserProfile(event)">
-                <label class="manga-label">Nombre de usuario</label>
-                <input type="text" id="profName" class="manga-input" required>
-                
-                <label class="manga-label">Biografía</label>
-                <textarea id="profBio" class="manga-textarea" rows="2"></textarea>
-
-                <label class="manga-label">Anime Favorito</label>
-                <input type="text" id="profFavAnime" class="manga-input">
-
-                <label class="manga-label">Manga Favorito</label>
-                <input type="text" id="profFavManga" class="manga-input">
-
-                <button type="submit" class="btn-manga btn-full">GUARDAR PERFIL</button>
+            <h2>Mi Perfil</h2>
+            <form onsubmit="saveUserProfile(event)" style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
+                <input type="text" id="profName" class="manga-input" placeholder="Nombre de usuario">
+                <textarea id="profBio" class="manga-textarea" placeholder="Biografía..."></textarea>
+                <input type="text" id="profFavAnime" class="manga-input" placeholder="Anime Favorito">
+                <input type="text" id="profFavManga" class="manga-input" placeholder="Manga Favorito">
+                <button type="submit" class="btn-manga btn-full">Guardar Perfil</button>
             </form>
         </div>
     </div>
 
-    <!-- MODAL: AMIGOS -->
-    <div id="friendsModal" class="manga-modal">
+    <!-- MODAL AMIGOS -->
+    <div class="manga-modal" id="friendsModal">
         <div class="modal-content modal-medium">
             <button class="close-btn" onclick="closeModal('friendsModal')">&times;</button>
-            <h2 class="modal-title">AMIGOS</h2>
-            
-            <div class="friends-search">
-                <input type="text" id="userSearchInput" placeholder="Buscar por usuario o email..." class="manga-input">
-                <button class="btn-manga" onclick="searchUsers()">BUSCAR</button>
-            </div>
-            <div id="userSearchResults" class="user-results-list"></div>
-
-            <h3 class="sub-title">MIS AMIGOS</h3>
-            <div id="friendsList" class="friends-list"></div>
+            <h2>Amigos</h2>
+            <input type="text" id="userSearchInput" class="manga-input" placeholder="Buscar usuarios..." oninput="searchUsers()" style="margin: 15px 0;">
+            <div id="userSearchResults"></div>
+            <h3 style="margin-top: 20px;">Tus Amigos</h3>
+            <div id="friendsList"></div>
         </div>
     </div>
 
-    <!-- MODAL: VER PERFIL DE AMIGO -->
-    <div id="friendProfileModal" class="manga-modal">
+    <!-- MODAL PERFIL AMIGO -->
+    <div class="manga-modal" id="friendProfileModal">
         <div class="modal-content modal-medium">
             <button class="close-btn" onclick="closeModal('friendProfileModal')">&times;</button>
-            <h2 id="friendProfName" class="modal-title">Usuario</h2>
-            <p id="friendProfBio" class="friend-bio">Biografía...</p>
-
-            <div class="favs-box">
-                <p><strong>Anime Fav:</strong> <span id="friendFavAnime">--</span></p>
-                <p><strong>Manga Fav:</strong> <span id="friendFavManga">--</span></p>
-            </div>
-
-            <h3 class="sub-title">VALORACIONES DE ESTE USUARIO</h3>
-            <div id="friendReviewsList" class="reviews-list"></div>
+            <h2 id="friendProfileName">Perfil de Amigo</h2>
+            <div id="friendReviewsList" style="margin-top: 15px;"></div>
         </div>
     </div>
 
-    <script src="./script.js"></script>
+    <!-- NOTIFICACIONES TOAST -->
+    <div id="toastContainer" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;"></div>
+
+    <!-- FIREBASE Y SCRIPT -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="script.js"></script>
+
 </body>
 </html>
