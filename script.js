@@ -139,7 +139,7 @@ function switchType(type) {
     loadTop3Sidebar();
 }
 
-// CARGAR DATOS LATERALES (NOVEDADES Y TOP 3)
+// CARGAR DATOS LATERALES
 async function loadSidebarsData() {
     loadLatestAnime();
     loadLatestManga();
@@ -448,7 +448,8 @@ function loadReviewsFromFirestore(itemId) {
               reviewsList.appendChild(item);
           });
       })
-      .catch(() => {
+      .catch((err) => {
+          console.error("Error al cargar reseñas:", err);
           reviewsList.innerHTML = '<p>Error al cargar reseñas.</p>';
       });
 }
@@ -478,7 +479,7 @@ async function searchUsers() {
         
         let found = false;
         snapshot.forEach(doc => {
-            if (doc.id === auth.currentUser.uid) return;
+            if (auth.currentUser && doc.id === auth.currentUser.uid) return;
 
             const data = doc.data();
             const name = (data.displayName || '').toLowerCase();
@@ -503,7 +504,8 @@ async function searchUsers() {
             resultsContainer.innerHTML = '<p style="font-size:0.85rem;">No se encontraron usuarios.</p>';
         }
     } catch (err) {
-        resultsContainer.innerHTML = '<p>Error al buscar usuarios.</p>';
+        console.error("Error al buscar usuarios:", err);
+        resultsContainer.innerHTML = '<p style="font-size:0.85rem; color:#e60012;">Error de permisos en Firebase. Revisa las reglas de Firestore.</p>';
     }
 }
 
@@ -521,6 +523,7 @@ async function addFriend(friendUid, friendName) {
         showToast(`¡Añadido a ${friendName}!`, "success");
         loadMyFriends();
     } catch (err) {
+        console.error("Error al añadir amigo:", err);
         showToast("Error al añadir amigo.", "error");
     }
 }
@@ -552,7 +555,8 @@ async function loadMyFriends() {
             container.appendChild(div);
         });
     } catch (err) {
-        container.innerHTML = '<p>Error al cargar amigos.</p>';
+        console.error("Error al cargar amigos:", err);
+        container.innerHTML = '<p style="font-size:0.85rem; color:#e60012;">Error al cargar amigos.</p>';
     }
 }
 
@@ -592,6 +596,7 @@ async function viewFriendProfile(friendUid) {
 
         document.getElementById('friendProfileModal').classList.add('active');
     } catch (err) {
+        console.error("Error al abrir perfil del amigo:", err);
         showToast("Error al abrir perfil del amigo.", "error");
     }
 }
