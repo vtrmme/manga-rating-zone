@@ -1,4 +1,4 @@
-// CONFIGURACIÓN OFICIAL FIREBASE
+// CONFIGURACIÓN FIREBASE
 const firebaseConfig = {
     apiKey: "AIzaSyC5UnHiP9fmBI9z8ENoyT78eNt-RrdLElc",
     authDomain: "manga-rating-zone.firebaseapp.com",
@@ -21,6 +21,7 @@ let selectedItemId = null;
 let currentAuthMode = 'login';
 let searchTimeout = null;
 
+// NOTIFICACIONES TOAST
 function showToast(message, type = 'success') {
     const container = document.getElementById('toastContainer');
     if (!container) return;
@@ -49,6 +50,7 @@ function getFriendlyErrorMessage(code) {
     }
 }
 
+// INICIALIZACIÓN
 document.addEventListener("DOMContentLoaded", () => {
     auth.onAuthStateChanged((user) => {
         updateNav(user);
@@ -62,6 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 });
 
+// NAVEGACIÓN
 async function updateNav(user) {
     const navLinks = document.getElementById('navLinks');
     if (!navLinks) return;
@@ -91,6 +94,7 @@ async function updateNav(user) {
     }
 }
 
+// AUTENTICACIÓN
 async function handleAuth(e) {
     e.preventDefault();
     const email = document.getElementById('authEmail').value.trim();
@@ -139,7 +143,7 @@ function switchType(type) {
     loadTop3Sidebar();
 }
 
-// CARGAR DATOS LATERALES
+// BARRA LATERAL
 async function loadSidebarsData() {
     loadLatestAnime();
     loadLatestManga();
@@ -225,7 +229,7 @@ function renderSideCard(item) {
     `;
 }
 
-// CARGA PRINCIPAL
+// BÚSQUEDA Y GRID
 async function loadTopContent() {
     const grid = document.getElementById('mangaGrid');
     const title = document.getElementById('gridTitle');
@@ -315,6 +319,7 @@ function renderGrid(items) {
     });
 }
 
+// DETALLES Y VALORACIONES
 function openDetailModal(item) {
     selectedItemId = item.mal_id;
     document.getElementById('modalTitle').innerText = item.title;
@@ -327,7 +332,7 @@ function openDetailModal(item) {
     if (item.youtubeVideoId) {
         trailerContainer.innerHTML = `<iframe src="https://www.youtube.com/embed/${item.youtubeVideoId}" frameborder="0" allowfullscreen></iframe>`;
     } else {
-        trailerContainer.innerHTML = '<div style="color:#fff; text-align:center; padding: 40px;">Trailer no disponible</div>';
+        trailerContainer.innerHTML = '<div style="color:#fff; text-align:center; padding: 40px; background: #000; font-weight: bold;">TRAILER NO DISPONIBLE</div>';
     }
 
     setRating(0);
@@ -335,49 +340,6 @@ function openDetailModal(item) {
 
     loadReviewsFromFirestore(item.mal_id);
     document.getElementById('detailModal').classList.add('active');
-}
-
-async function openProfileModal() {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    try {
-        const doc = await db.collection('users').doc(user.uid).get();
-        if (doc.exists) {
-            const data = doc.data();
-            document.getElementById('profName').value = data.displayName || '';
-            document.getElementById('profBio').value = data.bio || '';
-            document.getElementById('profFavAnime').value = data.favAnime || '';
-            document.getElementById('profFavManga').value = data.favManga || '';
-        }
-    } catch (err) {
-        showToast("Error al cargar perfil.", "error");
-    }
-
-    document.getElementById('profileModal').classList.add('active');
-}
-
-async function saveUserProfile(e) {
-    e.preventDefault();
-    const user = auth.currentUser;
-    if (!user) return;
-
-    try {
-        await db.collection('users').doc(user.uid).set({
-            displayName: document.getElementById('profName').value.trim(),
-            bio: document.getElementById('profBio').value.trim(),
-            favAnime: document.getElementById('profFavAnime').value.trim(),
-            favManga: document.getElementById('profFavManga').value.trim(),
-            email: user.email,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-
-        showToast("Perfil actualizado.", "success");
-        closeModal('profileModal');
-        updateNav(user);
-    } catch (err) {
-        showToast("Error al guardar perfil.", "error");
-    }
 }
 
 async function submitRating() {
@@ -428,7 +390,7 @@ async function submitRating() {
 
 function loadReviewsFromFirestore(itemId) {
     const reviewsList = document.getElementById('reviewsList');
-    reviewsList.innerHTML = '<p>Cargando reseñas...</p>';
+    reviewsList.innerHTML = '<p class="manga-font">CARGANDO RESEÑAS...</p>';
 
     db.collection('ratings')
       .where('itemId', '==', String(itemId))
@@ -446,9 +408,9 @@ function loadReviewsFromFirestore(itemId) {
               item.innerHTML = `
                   <div class="review-header">
                       <span>${data.userName || data.userEmail}</span>
-                      <span>★ ${data.stars}/5</span>
+                      <span style="color: #d97706;">★ ${data.stars}/5</span>
                   </div>
-                  <p style="font-size:0.9rem; margin-top:4px;">${data.comment || 'Sin reseña escrita.'}</p>
+                  <p style="font-size:0.85rem; margin-top:4px;">${data.comment || 'Sin reseña escrita.'}</p>
               `;
               reviewsList.appendChild(item);
           });
@@ -457,6 +419,50 @@ function loadReviewsFromFirestore(itemId) {
           console.error("Error al cargar reseñas:", err);
           reviewsList.innerHTML = '<p>Error al cargar reseñas.</p>';
       });
+}
+
+// PERFIL DE USUARIO
+async function openProfileModal() {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+        const doc = await db.collection('users').doc(user.uid).get();
+        if (doc.exists) {
+            const data = doc.data();
+            document.getElementById('profName').value = data.displayName || '';
+            document.getElementById('profBio').value = data.bio || '';
+            document.getElementById('profFavAnime').value = data.favAnime || '';
+            document.getElementById('profFavManga').value = data.favManga || '';
+        }
+    } catch (err) {
+        showToast("Error al cargar perfil.", "error");
+    }
+
+    document.getElementById('profileModal').classList.add('active');
+}
+
+async function saveUserProfile(e) {
+    e.preventDefault();
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+        await db.collection('users').doc(user.uid).set({
+            displayName: document.getElementById('profName').value.trim(),
+            bio: document.getElementById('profBio').value.trim(),
+            favAnime: document.getElementById('profFavAnime').value.trim(),
+            favManga: document.getElementById('profFavManga').value.trim(),
+            email: user.email,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        showToast("Perfil actualizado.", "success");
+        closeModal('profileModal');
+        updateNav(user);
+    } catch (err) {
+        showToast("Error al guardar perfil.", "error");
+    }
 }
 
 // SISTEMA DE AMIGOS
@@ -471,7 +477,7 @@ function openFriendsModal() {
 async function searchUsers() {
     const query = document.getElementById('userSearchInput').value.trim().toLowerCase();
     const resultsContainer = document.getElementById('userSearchResults');
-    resultsContainer.innerHTML = '<p>Buscando usuarios...</p>';
+    resultsContainer.innerHTML = '<p class="manga-font">BUSCANDO USUARIOS...</p>';
 
     if (!query) {
         resultsContainer.innerHTML = '';
@@ -499,7 +505,7 @@ async function searchUsers() {
                         <span class="user-item-name">${data.displayName || 'Usuario'}</span>
                         <span class="user-item-email">${data.email}</span>
                     </div>
-                    <button class="btn-manga" style="font-size:0.8rem; padding: 4px 8px;" onclick="addFriend('${doc.id}', '${data.displayName || data.email}')">Añadir</button>
+                    <button class="btn-manga" style="font-size:0.75rem; padding: 4px 8px;" onclick="addFriend('${doc.id}', '${data.displayName || data.email}')">Añadir</button>
                 `;
                 resultsContainer.appendChild(div);
             }
@@ -510,7 +516,7 @@ async function searchUsers() {
         }
     } catch (err) {
         console.error("Error al buscar usuarios:", err);
-        resultsContainer.innerHTML = '<p style="font-size:0.85rem; color:#e60012;">Error de permisos en Firebase. Revisa las reglas de Firestore.</p>';
+        resultsContainer.innerHTML = '<p style="font-size:0.85rem; color:#e60012;">Error al buscar usuarios.</p>';
     }
 }
 
@@ -538,7 +544,7 @@ async function loadMyFriends() {
     const container = document.getElementById('friendsList');
     if (!user || !container) return;
 
-    container.innerHTML = '<p>Cargando lista...</p>';
+    container.innerHTML = '<p class="manga-font">CARGANDO LISTA...</p>';
 
     try {
         const snapshot = await db.collection('users').doc(user.uid).collection('friends').get();
@@ -555,7 +561,7 @@ async function loadMyFriends() {
             div.className = 'user-item';
             div.innerHTML = `
                 <span class="user-item-name">${data.name}</span>
-                <button class="btn-manga" style="font-size:0.8rem; padding: 4px 8px;" onclick="viewFriendProfile('${data.uid}')">Ver Perfil</button>
+                <button class="btn-manga" style="font-size:0.75rem; padding: 4px 8px;" onclick="viewFriendProfile('${data.uid}')">Ver Perfil</button>
             `;
             container.appendChild(div);
         });
@@ -577,7 +583,7 @@ async function viewFriendProfile(friendUid) {
         }
 
         const reviewsContainer = document.getElementById('friendReviewsList');
-        reviewsContainer.innerHTML = '<p style="font-size:0.85rem;">Cargando valoraciones...</p>';
+        reviewsContainer.innerHTML = '<p style="font-size:0.85rem;" class="manga-font">CARGANDO VALORACIONES...</p>';
         document.getElementById('friendProfileModal').classList.add('active');
 
         const ratingsSnapshot = await db.collection('ratings').where('userUid', '==', friendUid).get();
@@ -626,14 +632,14 @@ async function viewFriendProfile(friendUid) {
             cover = cover || 'https://via.placeholder.com/60x80?text=Sin+Imagen';
 
             items.push(`
-                <div class="review-card-friend" style="display: flex !important; gap: 12px; align-items: center; margin-bottom: 10px; padding: 10px; border: 2px solid #000; background: #fff;">
-                    <img src="${cover}" alt="${title}" style="width: 55px; height: 75px; object-fit: cover; border: 2px solid #000; flex-shrink: 0; display: block;">
+                <div class="review-item" style="display: flex; gap: 12px; align-items: center; margin-bottom: 12px; padding: 10px; border: 3px solid #000; background: #fff; box-shadow: 4px 4px 0px #000;">
+                    <img src="${cover}" alt="${title}" style="width: 60px; height: 80px; object-fit: cover; border: 2px solid #000; flex-shrink: 0; display: block; box-shadow: 2px 2px 0px #000;">
                     <div style="flex: 1; min-width: 0;">
-                        <strong style="display: block; font-size: 0.9rem; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #000;">${title}</strong>
-                        <span style="font-size: 0.85rem; color: #d97706; font-weight: bold; display: block; margin: 2px 0;">★ ${r.stars}/5</span>
-                        <p style="font-size:0.8rem; color: #333; margin: 0; word-break: break-word;">${r.comment || 'Sin reseña escrita.'}</p>
+                        <strong style="display: block; font-size: 0.95rem; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #000;">${title}</strong>
+                        <span style="font-size: 0.9rem; color: #ffb400; font-weight: 900; display: block; margin: 3px 0; text-shadow: 1px 1px 0px #000;">★ ${r.stars}/5</span>
+                        <p style="font-size:0.85rem; color: #111; margin: 0; word-break: break-word;">${r.comment || 'Sin reseña escrita.'}</p>
                     </div>
-                    <button class="btn-manga" style="font-size: 0.75rem; padding: 6px 10px; flex-shrink: 0;" onclick="goToItem('${r.itemId}', '${type}')">Ver</button>
+                    <button class="btn-manga" style="font-size: 0.75rem; padding: 6px 12px; flex-shrink: 0;" onclick="goToItem('${r.itemId}', '${type}')">VER</button>
                 </div>
             `);
         }
@@ -663,6 +669,7 @@ async function goToItem(itemId, itemType) {
     }
 }
 
+// UTILIDADES
 function setRating(val) {
     currentRating = val;
     const stars = document.querySelectorAll('#starRating .star');
