@@ -3,124 +3,196 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manga Rating Zone</title>
+    <title>Manga Rating Zone - Comunidad de Valoraciones</title>
+    
+    <!-- Fuentes estilo Manga / Cómic -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Permanent+Marker&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Hoja de Estilos -->
     <link rel="stylesheet" href="style.css">
+
+    <!-- SDKs de Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
 
-    <!-- BARRA DE NAVEGACIÓN -->
-    <header class="manga-header">
-        <div class="logo-text">MANGA ZONE</div>
-        <nav class="nav-links" id="navLinks">
-            <!-- El JS inyecta los botones -->
-        </nav>
+    <!-- CONTENEDOR DE NOTIFICACIONES TOAST -->
+    <div id="toastContainer"></div>
+
+    <!-- HEADER -->
+    <header>
+        <div class="logo-container" onclick="loadTopAnime()">
+            <div class="logo-text">MANGA RATING ZONE</div>
+            <span class="logo-tag">VALORA Y COMPARTE</span>
+        </div>
+        <div class="nav-links" id="navLinks">
+            <!-- Dinámico desde JavaScript -->
+        </div>
     </header>
 
-    <!-- LAYOUT PRINCIPAL -->
-    <div class="main-layout">
-
-        <!-- COLUMNA IZQUIERDA -->
-        <aside class="sidebar">
-            <div class="side-box">
-                <h3 class="side-title">Último Anime</h3>
-                <div id="latestAnime"></div>
+    <!-- CONTENEDOR PRINCIPAL -->
+    <div class="container">
+        
+        <!-- HERO / BANNER -->
+        <section class="hero">
+            <h2>¡EL RINCÓN DEL OTAKU DEFINITIVO!</h2>
+            <p>Busca tus animes y mangas favoritos, vota sus trailers y descubre nuevas joyas.</p>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Escribe un título (ej: Naruto, Berserk, One Piece)...">
+                <button class="btn-manga btn-red" onclick="triggerSearch()">Buscar</button>
             </div>
-            <div class="side-box">
-                <h3 class="side-title">Último Manga</h3>
-                <div id="latestManga"></div>
+            <div class="type-selector">
+                <button class="type-btn active" id="btnTypeAnime" onclick="switchType('anime')">ANIME</button>
+                <button class="type-btn" id="btnTypeManga" onclick="switchType('manga')">MANGA</button>
             </div>
-        </aside>
+        </section>
 
-        <!-- COLUMNA CENTRAL -->
-        <main class="main-content">
-            <section class="search-section">
-                <div class="type-switch">
-                    <button class="btn-switch active" id="btnManga" onclick="switchType('manga')">Manga</button>
-                    <button class="btn-switch" id="btnAnime" onclick="switchType('anime')">Anime</button>
-                </div>
-                <div class="search-bar">
-                    <input type="text" id="searchInput" placeholder="Buscar..." oninput="handleSearch()">
-                </div>
-            </section>
+        <!-- PARRILLA DE CONTENIDO -->
+        <div class="section-title">
+            <span id="gridTitle">TOP ANIMES POPULARES</span>
+            <span class="api-tag">API OFICIAL (JIKAN)</span>
+        </div>
 
-            <h2 class="section-title" id="gridTitle">Populares</h2>
-            <div class="manga-grid" id="mangaGrid">
-                <!-- El JS carga los ítems -->
-            </div>
-        </main>
-
-        <!-- COLUMNA DERECHA -->
-        <aside class="sidebar">
-            <div class="side-box">
-                <h3 class="side-title">Top 3 Valorados</h3>
-                <div id="top3Container"></div>
-            </div>
-        </aside>
-
+        <div class="manga-grid" id="mangaGrid">
+            <!-- Carga dinámicamente -->
+        </div>
     </div>
 
-    <!-- MODAL DETALLES -->
-    <div class="manga-modal" id="detailModal">
-        <div class="modal-content modal-large">
-            <button class="close-btn" onclick="closeModal('detailModal')">&times;</button>
-            <div class="modal-body-grid">
-                <div class="modal-left" id="modalLeft"></div>
-                <div class="modal-right">
-                    <h2 id="modalTitle"></h2>
-                    <div id="trailerContainer" style="margin: 15px 0;"></div>
-                    <div class="reviews-section">
-                        <h3>Reseñas</h3>
-                        <div id="reviewsList"></div>
+    <!-- MODAL DETALLE / VALORACIÓN -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal('detailModal')">&times;</button>
+            <div class="modal-sidebar">
+                <img id="modalImg" src="" alt="Portada">
+                <div class="score-badge">
+                    SCORE MAL: <span id="modalMalScore">-</span>
+                </div>
+                <button id="favoriteBtn" class="btn-manga btn-full-width" onclick="toggleFavorite()" style="margin-top: 10px; background: #ffcc00;">★ Añadir a Favoritos</button>
+            </div>
+            <div class="modal-body">
+                <h2 id="modalTitle">Título del Anime</h2>
+                <p id="modalGenres" class="modal-genres"></p>
+                <p id="modalSynopsis" class="modal-synopsis"></p>
+                
+                <h3 class="manga-font margin-top-10">TRAILER OFICIAL</h3>
+                <div class="trailer-container" id="trailerContainer">
+                    <!-- iframe dinámico -->
+                </div>
+
+                <!-- SECCIÓN DE VALORACIÓN -->
+                <div class="rating-box">
+                    <h3 class="manga-font">TU VALORACIÓN</h3>
+                    <div class="stars" id="starRating">
+                        <span class="star" onclick="setRating(1)">★</span>
+                        <span class="star" onclick="setRating(2)">★</span>
+                        <span class="star" onclick="setRating(3)">★</span>
+                        <span class="star" onclick="setRating(4)">★</span>
+                        <span class="star" onclick="setRating(5)">★</span>
                     </div>
+                    <textarea id="commentInput" placeholder="Escribe tu reseña u opinión..." rows="3" class="comment-textarea"></textarea>
+                    <button class="btn-manga btn-red btn-full-width" onclick="submitRating()">Guardar en Firestore</button>
+                </div>
+
+                <h3 class="manga-font margin-top-20">RESEÑAS DE LA COMUNIDAD</h3>
+                <div class="reviews-container" id="reviewsList">
+                    <!-- Reseñas desde Firestore -->
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL PERFIL -->
-    <div class="manga-modal" id="profileModal">
-        <div class="modal-content modal-medium">
-            <button class="close-btn" onclick="closeModal('profileModal')">&times;</button>
-            <h2>Mi Perfil</h2>
-            <form onsubmit="saveUserProfile(event)" style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
-                <input type="text" id="profName" class="manga-input" placeholder="Nombre de usuario">
-                <textarea id="profBio" class="manga-textarea" placeholder="Biografía..."></textarea>
-                <input type="text" id="profFavAnime" class="manga-input" placeholder="Anime Favorito">
-                <input type="text" id="profFavManga" class="manga-input" placeholder="Manga Favorito">
-                <button type="submit" class="btn-manga btn-full">Guardar Perfil</button>
+    <!-- MODAL PERFIL DE USUARIO (MODIFICAR NOMBRE Y BIO) -->
+    <div class="modal-overlay" id="profileModal">
+        <div class="modal-content modal-auth">
+            <button class="close-modal" onclick="closeModal('profileModal')">&times;</button>
+            <h2 class="text-center manga-font">MI PERFIL OTAKU</h2>
+            <div style="margin-top: 15px; display: flex; flex-direction: column; gap: 12px;">
+                <div>
+                    <label style="font-weight: bold; font-size: 0.9rem;">Nombre de Usuario / Alias:</label>
+                    <input type="text" id="profileUsername" placeholder="Tu apodo" class="input-manga" style="width: 100%; margin-top: 5px;">
+                </div>
+                <div>
+                    <label style="font-weight: bold; font-size: 0.9rem;">Biografía / Frase Favorita:</label>
+                    <textarea id="profileBio" placeholder="Ej: ¡Dattebayo! Fanático del shonen." rows="3" class="input-manga" style="width: 100%; margin-top: 5px;"></textarea>
+                </div>
+                <button class="btn-manga btn-red" onclick="saveProfile()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL GESTIÓN DE AMIGOS (BASADO EN NOMBRE DE USUARIO) -->
+    <div class="modal-overlay" id="friendsModal">
+        <div class="modal-content modal-auth" style="max-width: 600px;">
+            <button class="close-modal" onclick="closeModal('friendsModal')">&times;</button>
+            <h2 class="text-center manga-font">CENTRAL DE AMIGOS</h2>
+            
+            <div style="margin-top: 15px;">
+                <label style="font-weight: bold; font-size: 0.9rem;">Añadir amigo por su Nombre de Usuario:</label>
+                <div class="search-box" style="margin-top: 5px;">
+                    <input type="text" id="friendUsernameInput" placeholder="Nombre de usuario..." style="font-size: 0.9rem; padding: 8px;">
+                    <button class="btn-manga btn-red" onclick="addFriend()" style="font-size: 0.9rem; padding: 8px 12px;">Añadir</button>
+                </div>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <h3 class="manga-font" style="font-size: 1.3rem;">TUS AMIGOS</h3>
+                <div id="friendsList" class="sub-list-container" style="max-height: 150px;">
+                    <!-- Lista de amigos dinámica -->
+                </div>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <h3 class="manga-font" style="font-size: 1.3rem;">FAVORITOS Y VALORACIONES DEL AMIGO</h3>
+                <div id="friendActivityList" class="sub-list-container" style="max-height: 200px;">
+                    <p style="font-size: 0.85rem;">Selecciona "Ver Actividad" en un amigo de tu lista.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL AUTENTICACIÓN -->
+    <div class="modal-overlay" id="authModal">
+        <div class="modal-content modal-auth">
+            <button class="close-modal" onclick="closeModal('authModal')">&times;</button>
+            <h2 id="authModalTitle" class="text-center">INICIAR SESIÓN</h2>
+            <form id="authForm" onsubmit="handleAuth(event)" class="auth-form">
+                <input type="email" id="authEmail" placeholder="Tu Correo Electrónico" required class="input-manga">
+                <input type="password" id="authPassword" placeholder="Contraseña (Mínimo 6 caracteres)" required class="input-manga">
+                <button type="submit" class="btn-manga btn-red" id="authSubmitBtn">Entrar</button>
             </form>
         </div>
     </div>
 
-    <!-- MODAL AMIGOS -->
-    <div class="manga-modal" id="friendsModal">
-        <div class="modal-content modal-medium">
-            <button class="close-btn" onclick="closeModal('friendsModal')">&times;</button>
-            <h2>Amigos</h2>
-            <input type="text" id="userSearchInput" class="manga-input" placeholder="Buscar usuarios..." oninput="searchUsers()" style="margin: 15px 0;">
-            <div id="userSearchResults"></div>
-            <h3 style="margin-top: 20px;">Tus Amigos</h3>
-            <div id="friendsList"></div>
+    <!-- FOOTER -->
+    <footer>
+        <div class="footer-content">
+            <div>
+                <h3 class="manga-font footer-title">SOBRE LA PLATAFORMA</h3>
+                <p class="footer-desc">
+                    Plataforma de valoraciones alojada en GitHub Pages y con base de datos en Google Firebase Firestore.
+                </p>
+            </div>
+            
+            <div class="request-form">
+                <h3 class="manga-font">¿QUIERES AÑADIR TU MANGA/ANIME PROPIO?</h3>
+                <p class="request-sub">Envíale un correo directo al creador con los datos de tu obra.</p>
+                <form onsubmit="sendCreatorEmail(event)">
+                    <input type="text" id="reqTitle" placeholder="Título de tu Obra / Manga" required>
+                    <textarea id="reqDesc" placeholder="Breve sinopsis o enlace a la portada/obra" rows="3" required></textarea>
+                    <button type="submit" class="btn-manga btn-red btn-full-width">Enviar Correo al Creador</button>
+                </form>
+            </div>
         </div>
-    </div>
-
-    <!-- MODAL PERFIL AMIGO -->
-    <div class="manga-modal" id="friendProfileModal">
-        <div class="modal-content modal-medium">
-            <button class="close-btn" onclick="closeModal('friendProfileModal')">&times;</button>
-            <h2 id="friendProfileName">Perfil de Amigo</h2>
-            <div id="friendReviewsList" style="margin-top: 15px;"></div>
+        <div class="copyright">
+            MANGA RATING ZONE &copy; - Conectado a Firebase Firestore
         </div>
-    </div>
+    </footer>
 
-    <!-- NOTIFICACIONES TOAST -->
-    <div id="toastContainer" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;"></div>
-
-    <!-- FIREBASE Y SCRIPT -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <!-- LÓGICA EN ARCHIVO EXTERNO -->
     <script src="script.js"></script>
-
 </body>
 </html>
