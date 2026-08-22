@@ -348,7 +348,7 @@ async function loadTopAnime() {
     }
 }
 
-// BUSCADOR CORREGIDO Y ASEGURADO
+// BUSCADOR LIMPIO SIN FILTRO SFW
 async function triggerSearch() {
     const query = document.getElementById('searchInput').value.trim();
     if (!query) {
@@ -361,11 +361,10 @@ async function triggerSearch() {
     title.innerText = `RESULTADOS PARA: "${query.toUpperCase()}"`;
     grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.5rem;">Buscando en la base de datos...</p>';
 
-    // Nos aseguramos de que currentType sea estrictamente 'anime' o 'manga'
     const searchType = (currentType === 'manga') ? 'manga' : 'anime';
 
     try {
-        const url = `https://api.jikan.moe/v4/${searchType}?q=${encodeURIComponent(query)}&limit=12&sfw=true`;
+        const url = `https://api.jikan.moe/v4/${searchType}?q=${encodeURIComponent(query)}&limit=12`;
         const res = await fetch(url);
         
         if (!res.ok) {
