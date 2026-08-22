@@ -567,6 +567,7 @@ async function loadMyFriends() {
 
 async function viewFriendProfile(friendUid) {
     try {
+        // 1. Cargar datos básicos del amigo
         const userDoc = await db.collection('users').doc(friendUid).get();
         if (userDoc.exists) {
             const data = userDoc.data();
@@ -577,60 +578,75 @@ async function viewFriendProfile(friendUid) {
         }
 
         const reviewsContainer = document.getElementById('friendReviewsList');
-        reviewsContainer.innerHTML = '<p>Cargando valoraciones...</p>';
+        reviewsContainer.innerHTML = '<p style="font-size:0.85rem;">Cargando valoraciones...</p>';
 
+        // 2. Obtener reseñas del usuario
         const ratingsSnapshot = await db.collection('ratings').where('userUid', '==', friendUid).get();
         reviewsContainer.innerHTML = '';
 
         if (ratingsSnapshot.empty) {
             reviewsContainer.innerHTML = '<p style="font-size:0.85rem;">Este usuario no ha hecho reseñas aún.</p>';
-        } else {
-            for (const doc of ratingsSnapshot.docs) {
-                const r = doc.data();
-                let title = r.itemTitle;
-                let cover = r.itemCover;
-                let type = r.itemType || 'anime';
+            document.getElementById('friendProfileModal').classList.add('active');
+            return;
+        }
 
-                // Si la reseña es antigua y no guardó el título o la portada, los pedimos a Kitsu
-                if (!title || !cover) {
-                    try {
-                        const res = await fetch(`https://kitsu.io/api/edge/anime/${r.itemId}`);
-                        const json = await res.json();
+        // 3. Procesar cada reseña
+        for (const doc of ratingsSnapshot.docs) {
+            const r = doc.data();
+            let title = r.itemTitle;
+            let cover = r.itemCover;
+            let type = r.itemType || 'anime';
+
+            // FALLBACK: Si es una reseña antigua sin título/portada, la buscamos en Kitsu
+            if (!title || !cover) {
+                try {
+                    // Probamos buscar como anime
+                    let res = await fetch(`https://kitsu.io/api/edge/anime/${r.itemId}`);
+                    if (res.ok) {
+                        let json = await res.json();
                         if (json.data) {
-                            const formatted = formatKitsuItem(json.data);
-                            title = formatted.title;
-                            cover = formatted.images.jpg.large_image_url;
-                        } else {
-                            const resManga = await fetch(`https://kitsu.io/api/edge/manga/${r.itemId}`);
-                            const jsonManga = await resManga.json();
-                            if (jsonManga.data) {
-                                const formatted = formatKitsuItem(jsonManga.data);
-                                title = formatted.title;
-                                cover = formatted.images.jpg.large_image_url;
+                            title = json.data.attributes.canonicalTitle || json.data.attributes.titles.en_jp;
+                            cover = json.data.attributes.posterImage?.small || json.data.attributes.posterImage?.original;
+                            type = 'anime';
+                        }
+                    }
+                    
+                    // Si no trajo título, probamos buscar como manga
+                    if (!title) {
+                        res = await fetch(`https://kitsu.io/api/edge/manga/${r.itemId}`);
+                        if (res.ok) {
+                            let json = await res.json();
+                            if (json.data) {
+                                title = json.data.attributes.canonicalTitle || json.data.attributes.titles.en_jp;
+                                cover = json.data.attributes.posterImage?.small || json.data.attributes.posterImage?.original;
                                 type = 'manga';
                             }
                         }
-                    } catch (e) {
-                        title = "Obra #" + r.itemId;
-                        cover = "https://via.placeholder.com/60x90?text=No+Cover";
                     }
+                } catch (e) {
+                    console.warn("Error al recuperar info de Kitsu:", e);
                 }
-
-                const div = document.createElement('div');
-                div.className = 'review-item';
-                div.style.cssText = "display: flex; gap: 10px; align-items: center; margin-bottom: 10px;";
-                
-                div.innerHTML = `
-                    <img src="${cover}" alt="${title}" style="width: 50px; height: 70px; object-fit: cover; border: 1px solid #000; border-radius: 4px;">
-                    <div style="flex: 1;">
-                        <strong style="display: block; font-size: 0.9rem;">${title || 'Obra desconocida'}</strong>
-                        <span style="font-size: 0.85rem; color: #ffb400;">★ ${r.stars}/5</span>
-                        <p style="font-size:0.8rem; margin-top:2px; color: #333;">${r.comment || 'Sin reseña escrita.'}</p>
-                    </div>
-                    <button class="btn-manga" style="font-size: 0.75rem; padding: 4px 8px;" onclick="goToItem('${r.itemId}', '${type}')">Ver</button>
-                `;
-                reviewsContainer.appendChild(div);
             }
+
+            // Valores por defecto si la API de Kitsu falla o no encuentra la id
+            title = title || `Obra #${r.itemId}`;
+            cover = cover || 'https://via.placeholder.com/60x80?text=Sin+Imagen';
+
+            // Crear el elemento HTML con portada, título, estrellas, reseña y botón Ver
+            const div = document.createElement('div');
+            div.className = 'review-item';
+            div.style.cssText = "display: flex; gap: 12px; align-items: center; margin-bottom: 10px; padding: 8px; border: 2px solid #000; background: #fff;";
+            
+            div.innerHTML = `
+                <img src="${cover}" alt="${title}" style="width: 55px; height: 75px; object-fit: cover; border: 1px solid #000; flex-shrink: 0;">
+                <div style="flex: 1; min-width: 0;">
+                    <strong style="display: block; font-size: 0.85rem; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${title}</strong>
+                    <span style="font-size: 0.85rem; color: #ffb400; font-weight: bold;">★ ${r.stars}/5</span>
+                    <p style="font-size:0.8rem; margin-top:2px; color: #222; word-break: break-word;">${r.comment || 'Sin reseña escrita.'}</p>
+                </div>
+                <button class="btn-manga" style="font-size: 0.75rem; padding: 6px 10px; flex-shrink: 0;" onclick="goToItem('${r.itemId}', '${type}')">Ver</button>
+            `;
+            reviewsContainer.appendChild(div);
         }
 
         document.getElementById('friendProfileModal').classList.add('active');
