@@ -349,7 +349,7 @@ async function loadTopAnime() {
     }
 }
 
-// BUSCADOR PROTEGIDO CONTRA GATEWAY TIMEOUT (504)
+// BUSCADOR ROBUSTO CON KITSU API (EVITA EL ERROR 504 DE JIKAN)
 async function triggerSearch() {
     const query = document.getElementById('searchInput').value.trim();
     if (!query) {
@@ -362,36 +362,47 @@ async function triggerSearch() {
     title.innerText = `RESULTADOS PARA: "${query.toUpperCase()}"`;
     grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.5rem;">Buscando en la base de datos...</p>';
 
-    const endpointType = (currentType === 'manga') ? 'manga' : 'anime';
-    const url = `https://api.jikan.moe/v4/${endpointType}?q=${encodeURIComponent(query)}&limit=12`;
+    const kitsuType = (currentType === 'manga') ? 'manga' : 'anime';
+    const url = `https://kitsu.io/api/edge/${kitsuType}?filter[text]=${encodeURIComponent(query)}&page[limit]=12`;
 
     try {
         const res = await fetch(url);
+        if (!res.ok) throw new Error('Error en Kitsu API');
         
-        if (res.status === 429) {
-            grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.2rem; color: #ffcc00;">¡Demasiadas peticiones! Espera un par de segundos.</p>';
-            showToast("Espera un momento antes de volver a buscar.", "error");
-            return;
-        }
-
-        if (res.status === 504 || !res.ok) {
-            throw new Error('Servidor saturado (504)');
-        }
-
         const data = await res.json();
-        renderGrid(data.data);
         
+        const formattedItems = data.data.map(item => {
+            const attrs = item.attributes;
+            return {
+                mal_id: item.id,
+                title: attrs.canonicalTitle || attrs.titles.en || attrs.titles.en_jp,
+                images: {
+                    jpg: {
+                        large_image_url: attrs.posterImage?.large || attrs.posterImage?.original || 'https://via.placeholder.com/225x320?text=No+Cover'
+                    }
+                },
+                score: attrs.averageRating ? (parseFloat(attrs.averageRating) / 10).toFixed(2) : 'N/A',
+                synopsis: attrs.synopsis || "Sinopsis no disponible.",
+                type: currentType.toUpperCase(),
+                episodes: attrs.episodeCount || null,
+                chapters: attrs.chapterCount || null,
+                trailer: attrs.youtubeVideoId ? { embed_url: `https://www.youtube.com/embed/${attrs.youtubeVideoId}` } : null,
+                genres: []
+            };
+        });
+
+        renderGrid(formattedItems);
+        showToast("¡Búsqueda realizada con éxito!", "success");
+
     } catch (err) {
-        console.warn("Jikan API Timeout detectado, usando alternativa de emergencia.");
-        // Mensaje interactivo claro para el usuario cuando Jikan se cae
+        console.error(err);
         grid.innerHTML = `
             <div style="grid-column: 1/-1; text-align: center; font-family: Bangers; padding: 20px;">
-                <p style="font-size: 1.3rem; color: #e60012; margin-bottom: 10px;">¡Los servidores de Jikan (MyAnimeList) están colapsados temporalmente (Error 504)!</p>
-                <p style="font-size: 1rem; color: #fff; margin-bottom: 15px;">Esto suele pasar por mucho tráfico global en su API gratuita. Vuelve a intentarlo en unos instantes.</p>
-                <button class="btn-manga" onclick="triggerSearch()">Reintentar Búsqueda</button>
+                <p style="font-size: 1.3rem; color: #e60012; margin-bottom: 10px;">¡Vaya! Hubo un problema al realizar la búsqueda.</p>
+                <button class="btn-manga" onclick="triggerSearch()">Reintentar</button>
             </div>
         `;
-        showToast("Servidor saturado temporalmente.", "error");
+        showToast("No se pudo completar la búsqueda.", "error");
     }
 }
 
