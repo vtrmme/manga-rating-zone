@@ -349,7 +349,7 @@ async function loadTopAnime() {
     }
 }
 
-// BUSCADOR ROBUSTO CON KITSU API (EVITA EL ERROR 504 DE JIKAN)
+// BUSCADOR USANDO KITSU API (EVITA EL ERROR 504 DE JIKAN)
 async function triggerSearch() {
     const query = document.getElementById('searchInput').value.trim();
     if (!query) {
