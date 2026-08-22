@@ -622,3 +622,53 @@ footer {
         grid-template-columns: 1fr;
     }
 }
+
+/* ==========================================
+   ADAPTACIÓN PARA MÓVILES (RESPONSIVE DESIGN)
+   ========================================== */
+
+@media screen and (max-width: 768px) {
+    /* Ajustar el contenedor principal o barras de navegación */
+    header, .nav-container, .top-bar {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+
+    /* Reducir los títulos gigantes para que no se salgan de la pantalla */
+    h1, .main-title {
+        font-size: 1.8rem !important;
+    }
+
+    /* Asegurar que la barra de búsqueda y botones ocupen un buen ancho */
+    .search-container, input[type="text"] {
+        width: 90% !important;
+        max-width: 100%;
+    }
+
+    /* Transformar la parrilla de animes/mangas en 2 columnas en lugar de tarjetas gigantes */
+    #mangaGrid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px;
+        padding: 10px;
+    }
+
+    /* Ajustar el tamaño de las tarjetas en móvil */
+    .manga-card {
+        width: 100% !important;
+    }
+
+    .manga-card img {
+        height: 180px !important; /* Altura más cómoda para móviles */
+        object-fit: cover;
+    }
+
+    /* Adaptar los modales (ventanas emergentes) para pantallas pequeñas */
+    .modal-content, .manga-modal-content {
+        width: 95% !important;
+        max-height: 90vh;
+        overflow-y: auto;
+        padding: 15px;
+    }
+}
