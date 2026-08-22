@@ -567,7 +567,6 @@ async function loadMyFriends() {
 
 async function viewFriendProfile(friendUid) {
     try {
-        // 1. Cargar datos básicos del amigo
         const userDoc = await db.collection('users').doc(friendUid).get();
         if (userDoc.exists) {
             const data = userDoc.data();
@@ -579,28 +578,25 @@ async function viewFriendProfile(friendUid) {
 
         const reviewsContainer = document.getElementById('friendReviewsList');
         reviewsContainer.innerHTML = '<p style="font-size:0.85rem;">Cargando valoraciones...</p>';
+        document.getElementById('friendProfileModal').classList.add('active');
 
-        // 2. Obtener reseñas del usuario
         const ratingsSnapshot = await db.collection('ratings').where('userUid', '==', friendUid).get();
         reviewsContainer.innerHTML = '';
 
         if (ratingsSnapshot.empty) {
             reviewsContainer.innerHTML = '<p style="font-size:0.85rem;">Este usuario no ha hecho reseñas aún.</p>';
-            document.getElementById('friendProfileModal').classList.add('active');
             return;
         }
 
-        // 3. Procesar cada reseña
+        const items = [];
         for (const doc of ratingsSnapshot.docs) {
             const r = doc.data();
             let title = r.itemTitle;
             let cover = r.itemCover;
             let type = r.itemType || 'anime';
 
-            // FALLBACK: Si es una reseña antigua sin título/portada, la buscamos en Kitsu
             if (!title || !cover) {
                 try {
-                    // Probamos buscar como anime
                     let res = await fetch(`https://kitsu.io/api/edge/anime/${r.itemId}`);
                     if (res.ok) {
                         let json = await res.json();
@@ -610,8 +606,6 @@ async function viewFriendProfile(friendUid) {
                             type = 'anime';
                         }
                     }
-                    
-                    // Si no trajo título, probamos buscar como manga
                     if (!title) {
                         res = await fetch(`https://kitsu.io/api/edge/manga/${r.itemId}`);
                         if (res.ok) {
@@ -624,32 +618,27 @@ async function viewFriendProfile(friendUid) {
                         }
                     }
                 } catch (e) {
-                    console.warn("Error al recuperar info de Kitsu:", e);
+                    console.warn("Error buscando info:", e);
                 }
             }
 
-            // Valores por defecto si la API de Kitsu falla o no encuentra la id
             title = title || `Obra #${r.itemId}`;
             cover = cover || 'https://via.placeholder.com/60x80?text=Sin+Imagen';
 
-            // Crear el elemento HTML con portada, título, estrellas, reseña y botón Ver
-            const div = document.createElement('div');
-            div.className = 'review-item';
-            div.style.cssText = "display: flex; gap: 12px; align-items: center; margin-bottom: 10px; padding: 8px; border: 2px solid #000; background: #fff;";
-            
-            div.innerHTML = `
-                <img src="${cover}" alt="${title}" style="width: 55px; height: 75px; object-fit: cover; border: 1px solid #000; flex-shrink: 0;">
-                <div style="flex: 1; min-width: 0;">
-                    <strong style="display: block; font-size: 0.85rem; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${title}</strong>
-                    <span style="font-size: 0.85rem; color: #ffb400; font-weight: bold;">★ ${r.stars}/5</span>
-                    <p style="font-size:0.8rem; margin-top:2px; color: #222; word-break: break-word;">${r.comment || 'Sin reseña escrita.'}</p>
+            items.push(`
+                <div class="review-card-friend" style="display: flex !important; gap: 12px; align-items: center; margin-bottom: 10px; padding: 10px; border: 2px solid #000; background: #fff;">
+                    <img src="${cover}" alt="${title}" style="width: 55px; height: 75px; object-fit: cover; border: 2px solid #000; flex-shrink: 0; display: block;">
+                    <div style="flex: 1; min-width: 0;">
+                        <strong style="display: block; font-size: 0.9rem; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #000;">${title}</strong>
+                        <span style="font-size: 0.85rem; color: #d97706; font-weight: bold; display: block; margin: 2px 0;">★ ${r.stars}/5</span>
+                        <p style="font-size:0.8rem; color: #333; margin: 0; word-break: break-word;">${r.comment || 'Sin reseña escrita.'}</p>
+                    </div>
+                    <button class="btn-manga" style="font-size: 0.75rem; padding: 6px 10px; flex-shrink: 0;" onclick="goToItem('${r.itemId}', '${type}')">Ver</button>
                 </div>
-                <button class="btn-manga" style="font-size: 0.75rem; padding: 6px 10px; flex-shrink: 0;" onclick="goToItem('${r.itemId}', '${type}')">Ver</button>
-            `;
-            reviewsContainer.appendChild(div);
+            `);
         }
 
-        document.getElementById('friendProfileModal').classList.add('active');
+        reviewsContainer.innerHTML = items.join('');
     } catch (err) {
         console.error("Error al abrir perfil del amigo:", err);
         showToast("Error al abrir perfil del amigo.", "error");
