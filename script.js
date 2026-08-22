@@ -174,7 +174,7 @@ async function saveProfile() {
 
         showToast("¡Perfil actualizado con éxito!", "success");
         closeModal('profileModal');
-        updateNav(user); // Refrescar el header con el nuevo nombre de usuario inmediatamente
+        updateNav(user);
     } catch (err) {
         showToast("Error al guardar el perfil.", "error");
     }
@@ -350,23 +350,34 @@ async function loadTopAnime() {
     }
 }
 
-// BUSCADOR
+// BUSCADOR MEJORADO (CON SFW Y MANEJO DE ERRORES)
 async function triggerSearch() {
     const query = document.getElementById('searchInput').value.trim();
-    if (!query) return;
+    if (!query) {
+        showToast("Escribe algo para buscar.", "error");
+        return;
+    }
 
     const grid = document.getElementById('mangaGrid');
     const title = document.getElementById('gridTitle');
     title.innerText = `RESULTADOS PARA: "${query.toUpperCase()}"`;
-    grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.5rem;">Buscando...</p>';
+    grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.5rem;">Buscando en la base de datos...</p>';
 
     try {
-        const res = await fetch(`https://api.jikan.moe/v4/${currentType}?q=${encodeURIComponent(query)}&limit=12`);
+        const url = `https://api.jikan.moe/v4/${currentType}?q=${encodeURIComponent(query)}&limit=12&sfw=true`;
+        const res = await fetch(url);
+        
+        if (!res.ok) {
+            throw new Error('Límite de peticiones excedido o error en la API');
+        }
+
         const data = await res.json();
         renderGrid(data.data);
+        
     } catch (err) {
-        grid.innerHTML = '<p>Error en la búsqueda.</p>';
-        showToast("Error al realizar la búsqueda.", "error");
+        console.error(err);
+        grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.2rem; color: #e60012;">¡Vaya! La API está saturada o tardó mucho en responder. Espera 2 segundos y vuelve a intentar.</p>';
+        showToast("Error en la búsqueda. Inténtalo de nuevo.", "error");
     }
 }
 
@@ -376,7 +387,7 @@ function renderGrid(items) {
     grid.innerHTML = '';
 
     if (!items || items.length === 0) {
-        grid.innerHTML = '<p style="grid-column: 1/-1;">No se han encontrado resultados.</p>';
+        grid.innerHTML = '<p style="grid-column: 1/-1; font-family: Bangers; font-size: 1.5rem;">No se han encontrado resultados.</p>';
         return;
     }
 
