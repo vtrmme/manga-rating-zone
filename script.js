@@ -348,7 +348,7 @@ async function loadTopAnime() {
     }
 }
 
-// BUSCADOR ROBUSTO CON CONTROL DE LÍMITE (RATE LIMIT)
+// BUSCADOR CON REINTENTO AUTOMÁTICO ANTE TIMEOUT (504)
 async function triggerSearch() {
     const query = document.getElementById('searchInput').value.trim();
     if (!query) {
@@ -361,30 +361,51 @@ async function triggerSearch() {
     title.innerText = `RESULTADOS PARA: "${query.toUpperCase()}"`;
     grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.5rem;">Buscando en la base de datos...</p>';
 
-    // Determinamos de forma limpia el tipo (anime o manga)
     const endpointType = (currentType === 'manga') ? 'manga' : 'anime';
+    const url = `https://api.jikan.moe/v4/${endpointType}?q=${encodeURIComponent(query)}&limit=12`;
+
+    let res = null;
+    let success = false;
+
+    // Intentamos hasta 2 veces por si la API da un Time-out temporal (504)
+    for (let intento = 1; intento <= 2; intento++) {
+        try {
+            res = await fetch(url);
+            
+            if (res.status === 429) {
+                grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.2rem; color: #ffcc00;">¡Demasiadas peticiones! Espera un par de segundos.</p>';
+                showToast("Espera un momento antes de volver a buscar.", "error");
+                return;
+            }
+
+            if (res.ok) {
+                success = true;
+                break;
+            }
+
+            // Si da error 504 u otro de servidor, esperamos 1 segundo y reintentamos
+            if (intento < 2) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        } catch (e) {
+            if (intento === 2) throw e;
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+    }
+
+    if (!success || !res || !res.ok) {
+        grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.2rem; color: #e60012;">¡El servidor de Jikan está saturado (Error 504)! Vuelve a hacer clic en buscar en unos segundos.</p>';
+        showToast("Servidor saturado, inténtalo otra vez.", "error");
+        return;
+    }
 
     try {
-        const url = `https://api.jikan.moe/v4/${endpointType}?q=${encodeURIComponent(query)}&limit=12`;
-        const res = await fetch(url);
-        
-        if (res.status === 429) {
-            grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.2rem; color: #ffcc00;">¡Demasiadas peticiones! Espera un par de segundos e inténtalo de nuevo.</p>';
-            showToast("Espera un momento antes de volver a buscar.", "error");
-            return;
-        }
-
-        if (!res.ok) {
-            throw new Error('Error en la respuesta de la API');
-        }
-
         const data = await res.json();
         renderGrid(data.data);
-        
     } catch (err) {
         console.error(err);
-        grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.2rem; color: #e60012;">¡Vaya! Ocurrió un error al conectar con Jikan. Comprueba tu conexión o espera 5 segundos.</p>';
-        showToast("Error en la búsqueda.", "error");
+        grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.2rem; color: #e60012;">Error al procesar los datos de la búsqueda.</p>';
+        showToast("Error al procesar los datos.", "error");
     }
 }
 
