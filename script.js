@@ -348,7 +348,7 @@ async function loadTopAnime() {
     }
 }
 
-// BUSCADOR LIMPIO SIN FILTRO SFW
+// BUSCADOR ROBUSTO CON CONTROL DE LÍMITE (RATE LIMIT)
 async function triggerSearch() {
     const query = document.getElementById('searchInput').value.trim();
     if (!query) {
@@ -367,6 +367,12 @@ async function triggerSearch() {
         const url = `https://api.jikan.moe/v4/${searchType}?q=${encodeURIComponent(query)}&limit=12`;
         const res = await fetch(url);
         
+        if (res.status === 429) {
+            grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.2rem; color: #ffcc00;">¡Demasiadas peticiones! Espera un par de segundos e inténtalo de nuevo.</p>';
+            showToast("Espera un momento antes de volver a buscar.", "error");
+            return;
+        }
+
         if (!res.ok) {
             throw new Error('Error en la respuesta de la API');
         }
@@ -376,7 +382,7 @@ async function triggerSearch() {
         
     } catch (err) {
         console.error(err);
-        grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.2rem; color: #e60012;">¡Vaya! Ocurrió un error al buscar. Comprueba tu conexión e inténtalo de nuevo.</p>';
+        grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.2rem; color: #e60012;">¡Vaya! Ocurrió un error al conectar con Jikan. Comprueba tu conexión o espera 5 segundos.</p>';
         showToast("Error en la búsqueda.", "error");
     }
 }
