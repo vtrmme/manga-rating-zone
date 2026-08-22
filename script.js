@@ -340,15 +340,16 @@ async function loadTopAnime() {
 
     try {
         const res = await fetch(`https://api.jikan.moe/v4/top/${currentType}?limit=12`);
+        if (!res.ok) throw new Error("Error en el servidor");
         const data = await res.json();
         renderGrid(data.data);
     } catch (err) {
-        grid.innerHTML = '<p>Error al conectar con el servidor.</p>';
+        grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.2rem; color: #ffcc00;">La API está tardando en responder. Haz clic aquí para <a href="#" onclick="loadTopAnime(); return false;" style="color:#fff; text-decoration:underline;">recargar</a>.</p>';
         showToast("No se pudo cargar la lista.", "error");
     }
 }
 
-// BUSCADOR CON REINTENTO AUTOMÁTICO ANTE TIMEOUT (504)
+// BUSCADOR PROTEGIDO CONTRA GATEWAY TIMEOUT (504)
 async function triggerSearch() {
     const query = document.getElementById('searchInput').value.trim();
     if (!query) {
@@ -364,48 +365,33 @@ async function triggerSearch() {
     const endpointType = (currentType === 'manga') ? 'manga' : 'anime';
     const url = `https://api.jikan.moe/v4/${endpointType}?q=${encodeURIComponent(query)}&limit=12`;
 
-    let res = null;
-    let success = false;
-
-    // Intentamos hasta 2 veces por si la API da un Time-out temporal (504)
-    for (let intento = 1; intento <= 2; intento++) {
-        try {
-            res = await fetch(url);
-            
-            if (res.status === 429) {
-                grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.2rem; color: #ffcc00;">¡Demasiadas peticiones! Espera un par de segundos.</p>';
-                showToast("Espera un momento antes de volver a buscar.", "error");
-                return;
-            }
-
-            if (res.ok) {
-                success = true;
-                break;
-            }
-
-            // Si da error 504 u otro de servidor, esperamos 1 segundo y reintentamos
-            if (intento < 2) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-        } catch (e) {
-            if (intento === 2) throw e;
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-    }
-
-    if (!success || !res || !res.ok) {
-        grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.2rem; color: #e60012;">¡El servidor de Jikan está saturado (Error 504)! Vuelve a hacer clic en buscar en unos segundos.</p>';
-        showToast("Servidor saturado, inténtalo otra vez.", "error");
-        return;
-    }
-
     try {
+        const res = await fetch(url);
+        
+        if (res.status === 429) {
+            grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.2rem; color: #ffcc00;">¡Demasiadas peticiones! Espera un par de segundos.</p>';
+            showToast("Espera un momento antes de volver a buscar.", "error");
+            return;
+        }
+
+        if (res.status === 504 || !res.ok) {
+            throw new Error('Servidor saturado (504)');
+        }
+
         const data = await res.json();
         renderGrid(data.data);
+        
     } catch (err) {
-        console.error(err);
-        grid.innerHTML = '<p style="font-family: Bangers; font-size: 1.2rem; color: #e60012;">Error al procesar los datos de la búsqueda.</p>';
-        showToast("Error al procesar los datos.", "error");
+        console.warn("Jikan API Timeout detectado, usando alternativa de emergencia.");
+        // Mensaje interactivo claro para el usuario cuando Jikan se cae
+        grid.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; font-family: Bangers; padding: 20px;">
+                <p style="font-size: 1.3rem; color: #e60012; margin-bottom: 10px;">¡Los servidores de Jikan (MyAnimeList) están colapsados temporalmente (Error 504)!</p>
+                <p style="font-size: 1rem; color: #fff; margin-bottom: 15px;">Esto suele pasar por mucho tráfico global en su API gratuita. Vuelve a intentarlo en unos instantes.</p>
+                <button class="btn-manga" onclick="triggerSearch()">Reintentar Búsqueda</button>
+            </div>
+        `;
+        showToast("Servidor saturado temporalmente.", "error");
     }
 }
 
